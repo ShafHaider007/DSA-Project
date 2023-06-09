@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Shortest Path</title>
+    <link rel="icon" href="\images\icon.png" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"
+    />
+    <style>
+      #map {
+        width: 1600px;
+        height: 900px;
+        padding-left: 0%;
+        padding-top: 0%;
+        position: fixed;
+        z-index: 1;
+      }
+
+      article {
+        height: 200px;
+        width: 300px;
+        z-index: 2;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        opacity: 75%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <button onclick="CurrentLocation()">
+      <img
+        src="\images\locate_curr.png"
+        alt="button"
+        style="
+          width: 50px;
+          height: 50px;
+          position: absolute;
+          bottom: 10px;
+          right: 10px;
+        "
+      />
+    </button>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script>
+      const map = L.map("map").setView([33.6844, 73.0479], 11);
+
+      const tiles = L.tileLayer(
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }
+      ).addTo(map);
+
+      function CurrentLocation() {
+        map.locate({ setView: true, maxZoom: 17 });
+        function onLocationFound(e) {
+          var radius = e.accuracy;
+
+          L.circle(e.latlng).addTo(map);
+        }
+
+        map.on("locationfound", onLocationFound);
+      }
+
+      fetch("/shortest_path_nodes11.geojson")
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (geojson) {
+          var totalDistance = 0;
+
+          // Extract coordinates from point features
+          var coordinates = geojson.features.map(function (feature) {
+            return feature.geometry.coordinates.reverse();
+          });
+
+          // Create a Leaflet polyline with the extracted coordinates
+          L.polyline(coordinates, { color: "blue" }).addTo(map);
+          var midpoint = L.latLng(coordinates[coordinates.length / 2]);
+          map.setView(midpoint, 14);
+          // Calculate distance between each pair of consecutive points
+          for (var i = 1; i < coordinates.length; i++) {
+            var startPoint = L.latLng(coordinates[i - 1]);
+            var endPoint = L.latLng(coordinates[i]);
+            var segmentDistance = startPoint.distanceTo(endPoint);
+
+            totalDistance += segmentDistance; // Accumulate the distance
+            document.getElementById("total_Distance").innerHTML =
+              totalDistance.toFixed(2);
+            var totalTime = totalDistance / 83.3;
+            document.getElementById("total_time").innerHTML =
+              totalTime.toFixed(0);
+
+            var currentTime = new Date();
+
+            // Add extra time (e.g., 1 hour)
+            var extraTime = totalTime * 60 * 1000; // Convert minutes to milliseconds
+            var newTime = new Date(currentTime.getTime() + extraTime);
+
+            // Format the new time (adjust according to your needs)
+            var formattedTime = newTime.toLocaleString();
+
+            // Display the formatted time in an HTML element
+            var timeElement = document.getElementById("time");
+            timeElement.innerHTML = formattedTime;
+
+            // Log the distance for each line segment
+            console.log(
+              "Segment distance:",
+              segmentDistance.toFixed(2),
+              "meters"
+            );
+          }
+
+          // Log the total distance between start and end points
+          console.log("Total distance:", totalDistance.toFixed(2), "meters");
+        })
+        .catch(function (error) {
+          console.log("Error loading GeoJSON: ", error);
+        });
+    </script>
+    <article>
+      <h1><center>Route Information</center></h1>
+      <p>
+        <b>Total Distance = </b> <i id="total_Distance"></i>
+        <i>meters</i>
+      </p>
+      <p>
+        <b>Total Time = </b>
+        <i id="total_time"></i>
+        <i> min</i>
+      </p>
+      <p><b>Expected Arrival :</b> <span id="time"></span></p>
+    </article>
+  </body>
+</html>
